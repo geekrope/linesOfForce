@@ -53,8 +53,8 @@ class PointCharge {
 }
 class PhysicalEngine {
     static computeChorde(vector) {
-        const sizedLength = vector.length / 10;
-        return new Vector(vector.x / sizedLength, vector.y / sizedLength);
+        const scalor = vector.length / 5;
+        return new Vector(vector.x / scalor, vector.y / scalor);
     }
     static computeFieldVoltage(charges, point) {
         let result = new Vector(0, 0);
@@ -66,7 +66,7 @@ class PhysicalEngine {
     static computeVoltageLine(charges, start, bounds) {
         const points = [start];
         let lastPoint = start;
-        for (let count = 0; count < 200; count++) {
+        for (let count = 0; count < 800; count++) {
             const fieldVoltage = this.computeFieldVoltage(charges, lastPoint);
             const chorde = this.computeChorde(fieldVoltage);
             const newPoint = { x: lastPoint.x + chorde.x, y: lastPoint.y + chorde.y };
@@ -95,9 +95,9 @@ function draw(charges) {
     context.strokeStyle = "black";
     context.lineWidth = 2;
     charges.forEach((charge) => {
-        var lines = PhysicalEngine.computeVoltageLinesAroundPointCharge(charge, charges, 50, screenSize);
+        var lines = PhysicalEngine.computeVoltageLinesAroundPointCharge(charge, charges, 10, screenSize);
         lines.forEach((line) => {
-            const path = new Path2D;
+            const path = new Path2D();
             path.moveTo(line[0].x, line[0].y);
             line.forEach((p) => {
                 path.lineTo(p.x, p.y);
@@ -105,15 +105,15 @@ function draw(charges) {
             context.stroke(path);
         });
     });
-    context.beginPath();
     charges.forEach((charge) => {
+        context.beginPath();
         context.fillStyle = charge.q < 0 ? "blue" : "red";
         context.arc(charge.position.x, charge.position.y, 10, 0, Math.PI * 2);
         context.fill();
     });
 }
 window.onload = () => {
-    const charges = [new PointCharge(-1, { x: 300, y: 200 }), new PointCharge(10, { x: 300, y: 400 })];
+    const charges = [new PointCharge(1, { x: 300, y: 200 }), new PointCharge(10, { x: 300, y: 400 }), new PointCharge(-10, { x: 900, y: 400 })];
     var t = 0;
     setInterval(() => {
         const a = Math.random() * Math.PI * 2;

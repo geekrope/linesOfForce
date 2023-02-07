@@ -51,6 +51,13 @@ class Utils
 	}
 }
 
+class Settings
+{
+	public static readonly k = 9 * 1e9;
+	public static readonly chordeLength = 5;
+	public static readonly lineNodesCount = 800;
+}
+
 interface ChargeSource
 {
 	fieldVoltage(point: point): Vector;
@@ -60,7 +67,6 @@ class PointCharge implements ChargeSource
 {
 	private _q: number;
 	private _position: point;
-	private readonly k = 9e9;
 
 	public get q()
 	{
@@ -74,7 +80,7 @@ class PointCharge implements ChargeSource
 	public fieldVoltage(point: point): Vector
 	{
 		const distance = Utils.distance(this.position, point);
-		const voltage = this.k * this.q / (distance * distance);
+		const voltage = Settings.k * this.q / (distance * distance);
 		const distanceVector = new Vector((point.x - this.position.x) / distance, (point.y - this.position.y) / distance);
 		const voltageVector = new Vector(distanceVector.x * voltage, distanceVector.y * voltage);
 
@@ -92,8 +98,9 @@ class PhysicalEngine
 {
 	private static computeChorde(vector: Vector): Vector
 	{
-		const sizedLength = vector.length / 10;
-		return new Vector(vector.x / sizedLength, vector.y / sizedLength);
+		const scalor = vector.length / Settings.chordeLength;
+
+		return new Vector(vector.x / scalor, vector.y / scalor);
 	}
 	private static computeFieldVoltage(charges: ChargeSource[], point: point): Vector
 	{
@@ -111,11 +118,12 @@ class PhysicalEngine
 		const points: point[] = [start];
 		let lastPoint = start;
 
-		for (let count = 0; count < 200; count++)
+		for (let count = 0; count < Settings.lineNodesCount; count++)
 		{
 			const fieldVoltage = this.computeFieldVoltage(charges, lastPoint);
 			const chorde = this.computeChorde(fieldVoltage);
 			const newPoint = { x: lastPoint.x + chorde.x, y: lastPoint.y + chorde.y };
+
 			lastPoint = newPoint;
 
 			points.push(newPoint);
@@ -155,11 +163,11 @@ function draw(charges: PointCharge[])
 
 	charges.forEach((charge) =>
 	{
-		var lines = PhysicalEngine.computeVoltageLinesAroundPointCharge(charge, charges, 50, screenSize);
+		var lines = PhysicalEngine.computeVoltageLinesAroundPointCharge(charge, charges, 10, screenSize);
 
 		lines.forEach((line) =>
 		{
-			const path = new Path2D;
+			const path = new Path2D();
 			path.moveTo(line[0].x, line[0].y);
 
 			line.forEach((p) =>
@@ -170,9 +178,9 @@ function draw(charges: PointCharge[])
 		});
 	});
 
-	context.beginPath();
 	charges.forEach((charge) =>
 	{
+		context.beginPath();
 		context.fillStyle = charge.q < 0 ? "blue" : "red";
 		context.arc(charge.position.x, charge.position.y, 10, 0, Math.PI * 2);
 		context.fill();
@@ -181,7 +189,7 @@ function draw(charges: PointCharge[])
 
 window.onload = () =>
 {
-	const charges = [new PointCharge(-1, { x: 300, y: 200 }), new PointCharge(10, { x: 300, y: 400 })];
+	const charges = [new PointCharge(1, { x: 300, y: 200 }), new PointCharge(10, { x: 300, y: 400 }), new PointCharge(-10, { x: 900, y: 400 })];
 
 	var t = 0;
 
