@@ -55,7 +55,11 @@ class Settings
 {
 	public static readonly k = 9 * 1e9;
 	public static readonly chordeLength = 5;
-	public static readonly lineNodesCount = 800;
+	public static readonly lineNodesCount = 1000;
+	public static readonly linesDensity = 50;
+	public static readonly doublePI = Math.PI * 2;
+	public static readonly positiveChargeColor = "red";
+	public static readonly negativeChargeColor = "blue";
 }
 
 interface ChargeSource
@@ -139,7 +143,7 @@ class PhysicalEngine
 
 		for (let part = 0; part < density; part++)
 		{
-			const angle = Math.PI * 2 * part / density;
+			const angle = Settings.doublePI * part / density;
 			const point = { x: Math.cos(angle) * radius + target.position.x, y: Math.sin(angle) * radius + target.position.y };
 			const line = this.computeVoltageLine(charges, point, bounds);
 
@@ -150,58 +154,129 @@ class PhysicalEngine
 	}
 }
 
-function draw(charges: PointCharge[])
+class VisualEngine
 {
-	const canvas = document.getElementById("cnvs") as HTMLCanvasElement;
-	const context = canvas.getContext("2d");
-	const screenSize = { width: 1920, height: 1008 };
-
-	context.clearRect(0, 0, 1920, 1080);
-
-	context.strokeStyle = "black";
-	context.lineWidth = 2;
-
-	charges.forEach((charge) =>
+	private static drawLine(points: point[]): Path2D
 	{
-		var lines = PhysicalEngine.computeVoltageLinesAroundPointCharge(charge, charges, 10, screenSize);
+		const path = new Path2D();
+		path.moveTo(points[0].x, points[0].y);
 
-		lines.forEach((line) =>
+		for (let index = 1; index < points.length; index++)
 		{
-			const path = new Path2D();
-			path.moveTo(line[0].x, line[0].y);
+			const point = points[index];
+			path.lineTo(point.x, point.y);
+		}
 
-			line.forEach((p) =>
-			{
-				path.lineTo(p.x, p.y);
-			});
-			context.stroke(path);
-		});
-	});
-
-	charges.forEach((charge) =>
+		return path;
+	}
+	private static drawCircle(center: point, radius: number): Path2D
 	{
-		context.beginPath();
-		context.fillStyle = charge.q < 0 ? "blue" : "red";
-		context.arc(charge.position.x, charge.position.y, 10, 0, Math.PI * 2);
-		context.fill();
-	});
+		const path = new Path2D();
+		path.arc(center.x, center.y, radius, 0, Settings.doublePI);
+
+		return path;
+	}
+
+	public static drawPointCharge(context: CanvasRenderingContext2D, charge: PointCharge)
+	{
+		const radius = 10;
+		const path = VisualEngine.drawCircle(charge.position, radius);
+
+		context.fillStyle = charge.q < 0 ? Settings.negativeChargeColor : Settings.positiveChargeColor;
+		context.fill(path);
+	}
+	public static drawFieldVoltageLine(context: CanvasRenderingContext2D, line: point[])
+	{
+		const lineWidth = 1;
+		const color = "black";
+		const path = VisualEngine.drawLine(line);
+
+		context.strokeStyle = color;
+		context.lineWidth = lineWidth;
+		context.stroke(path);
+	}
+}
+
+class Scene
+{
+	private _renderingContext: CanvasRenderingContext2D;
+	private _charges: ChargeSource[];
+
+	private computeVoltageLines(): point[][]
+	{
+		const lines: point[][] = [];
+
+		this._charges.forEach((charge) =>
+		{
+			let readyToPush: point[][] = [];
+
+			if (charge instanceof PointCharge)
+			{
+				readyToPush = PhysicalEngine.computeVoltageLinesAroundPointCharge(charge, this._charges, Settings.linesDensity, { width: 0, height: 0 });
+			}
+			else
+			{
+				throw new Error("oops");
+			}
+
+			readyToPush.forEach((line) => { lines.push(line) });
+		});
+
+		return lines;
+	}
+
+	public draw()
+	{
+		const voltageLines = this.computeVoltageLines();
+
+		this._renderingContext.clearRect(0, 0, this._renderingContext.canvas.width, this._renderingContext.canvas.height);
+
+		voltageLines.forEach((line) =>
+		{
+			VisualEngine.drawFieldVoltageLine(this._renderingContext, line);
+		});
+		this._charges.forEach((charge) =>
+		{
+			if (charge instanceof PointCharge)
+			{
+				VisualEngine.drawPointCharge(this._renderingContext, charge);
+			}
+			else
+			{
+				throw new Error("oops");
+			}
+		});
+	}
+
+	public constructor(renderingContext: CanvasRenderingContext2D, charges: ChargeSource[])
+	{
+		this._renderingContext = renderingContext;
+		this._charges = charges;
+	}
 }
 
 window.onload = () =>
 {
-	const charges = [new PointCharge(1, { x: 300, y: 200 }), new PointCharge(10, { x: 300, y: 400 }), new PointCharge(-10, { x: 900, y: 400 })];
-
-	var t = 0;
-
-	setInterval(() =>
+	const charges = [new PointCharge(1, { x: 300, y: 200 }), new PointCharge(-1, { x: 300, y: 400 })];
+	const canvas = document.getElementById("cnvs") as HTMLCanvasElement;
+	const context = canvas.getContext("2d");
+	const scene = new Scene(context, charges);
+	let t = 0;
+	const draw = () =>
 	{
-		const a = Math.random() * Math.PI * 2;
 		charges[0].position.x = Math.cos(t) * 200 + 300;
 		charges[0].position.y = Math.sin(t) * 200 + 400;
 
-		draw(charges);
+		scene.draw();
 
 		t += 0.01;
-	}, 20);
+
+		requestAnimationFrame(draw);
+	};
+
+	canvas.width = this.innerWidth;
+	canvas.height = this.innerHeight;
+
+	draw();
 };
 
